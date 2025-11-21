@@ -1,10 +1,9 @@
-
 const API_BASE = import.meta.env.VITE_API_URL + '/api';
 
 export const api = {
   /**
-   * Получить рецепты с фильтрами и категориями
-   * @param {Object} params - параметры фильтрации (limit, name, category и др.)
+   * Получить рецепты
+   * @param {Object} params - параметры (limit, offset)
    * @returns {Promise<Object>}
    */
   async getRecipes(params = {}) {

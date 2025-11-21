@@ -22,24 +22,33 @@
         <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; min-width:220px;">
             <label>Название рецепта:
-              <input v-model="filters.name" @input="fetchRecipes" placeholder="e.g., pizza, chicken..." style="margin-bottom:8px;" />
+              <input v-model="filters.name" @input="debouncedFetchRecipes" placeholder="e.g., pizza, chicken..." style="margin-bottom:8px;" />
             </label>
+            
+            <!-- ⏱️ ФИЛЬТРЫ ПО ВРЕМЕНИ ПРИГОТОВЛЕНИЯ -->
             <label style="margin-top:8px;">⏱️ Время приготовления (минут)
               <div style="display:flex;align-items:center;gap:8px;">
-                <input type="range" min="0" max="240" v-model.number="filters.minMinutes" @input="fetchRecipes" style="flex:1;" />
-                <span style="min-width:32px;text-align:right;">{{ filters.minMinutes }}</span>
+                <span>0</span>
+                <input type="range" min="0" max="240" v-model.number="filters.maxMinutes" @input="fetchRecipes" style="flex:1;" />
+                <span style="min-width:32px;text-align:right;">{{ filters.maxMinutes }}</span>
               </div>
             </label>
+            
+            <!-- 🛒 ФИЛЬТРЫ ПО КОЛИЧЕСТВУ ИНГРЕДИЕНТОВ -->
             <label style="margin-top:8px;">🛒 Количество ингредиентов
               <div style="display:flex;align-items:center;gap:8px;">
-                <input type="range" min="1" max="50" v-model.number="filters.minIngredients" @input="fetchRecipes" style="flex:1;" />
-                <span style="min-width:32px;text-align:right;">{{ filters.minIngredients }}</span>
+                <span>1</span>
+                <input type="range" min="1" max="50" v-model.number="filters.maxIngredients" @input="fetchRecipes" style="flex:1;" />
+                <span style="min-width:32px;text-align:right;">{{ filters.maxIngredients }}</span>
               </div>
             </label>
+            
+            <!-- 🔥 ФИЛЬТРЫ ПО КАЛОРИЯМ -->
             <label style="margin-top:8px;">🔥 Калории
               <div style="display:flex;align-items:center;gap:8px;">
-                <input type="range" min="0" max="2000" v-model.number="filters.minCalories" @input="fetchRecipes" style="flex:1;" />
-                <span style="min-width:32px;text-align:right;">{{ filters.minCalories }}</span>
+                <span>0</span>
+                <input type="range" min="0" max="2000" v-model.number="filters.maxCalories" @input="fetchRecipes" style="flex:1;" />
+                <span style="min-width:32px;text-align:right;">{{ filters.maxCalories }}</span>
               </div>
             </label>
           </div>
@@ -149,13 +158,49 @@
             </div>
           </div>
           
+          <!-- ВЫБРАННЫЕ ФИЛЬТРЫ -->
+          <div v-if="hasActiveFilters" class="selected-filters">
+            <h4>🎯 Активные фильтры:</h4>
+            <div class="selected-filters-list">
+              <!-- Фильтры по диапазонам -->
+              <span v-if="filters.maxMinutes < 240" class="selected-filter-item">
+                ⏱️ До {{ filters.maxMinutes }} мин
+                <button @click="clearFilter('maxMinutes')" class="filter-remove">×</button>
+              </span>
+              <span v-if="filters.maxIngredients < 50" class="selected-filter-item">
+                🛒 До {{ filters.maxIngredients }} ингредиентов
+                <button @click="clearFilter('maxIngredients')" class="filter-remove">×</button>
+              </span>
+              <span v-if="filters.maxCalories < 2000" class="selected-filter-item">
+                🔥 До {{ filters.maxCalories }} калорий
+                <button @click="clearFilter('maxCalories')" class="filter-remove">×</button>
+              </span>
+              
+              <!-- Фильтры по категориям -->
+              <span v-for="category in activeCategoryFilters" :key="category.key" class="selected-filter-item">
+                {{ getCategoryLabel(category.key) }}: {{ category.selected.join(', ') }}
+                <button @click="clearCategoryFilter(category.key)" class="filter-remove">×</button>
+              </span>
+              
+              <!-- Фильтр "только без названия" -->
+              <span v-if="filters.onlyNoName" class="selected-filter-item">
+                📝 Только без названия
+                <button @click="clearFilter('onlyNoName')" class="filter-remove">×</button>
+              </span>
+            </div>
+            
+            <!-- КНОПКА ОЧИСТКИ ВСЕХ ФИЛЬТРОВ -->
+            <button @click="clearAllFilters" class="clear-all-filters-btn">
+              ✕ Очистить все фильтры
+            </button>
+          </div>
+          
           <!-- КНОПКИ ФИЛЬТРОВ, ПАГИНАЦИЯ -->
           <div style="display:flex;align-items:center;gap:16px;margin-top:16px;width:100%;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="checkbox" v-model="filters.onlyNoName" @change="fetchRecipes" id="onlyNoName" />
               <label for="onlyNoName" style="cursor:pointer;">Показать только без названия</label>
             </div>
-            <button @click="clearFilters" style="height:32px;">Сбросить фильтры</button>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="color:#666;font-size:0.9em;">Показывать по:</span>
               <select v-model="pageSize" @change="changePageSize(Number($event.target.value))" style="height:32px;">
@@ -163,74 +208,37 @@
               </select>
             </div>
             <span style="color:#666;font-size:0.9em;">Найдено рецептов: {{ totalRecipes }}</span>
-            <div v-if="totalPages > 1 || totalRecipes > pageSize" style="display:flex;align-items:center;gap:4px;">
-              <button :disabled="currentPage === 1" @click="goToPage(currentPage-1)">&lt;</button>
-              <span v-for="page in getPageList()" :key="page">
-                <button v-if="page !== '...'" :class="{active: currentPage === page}" @click="goToPage(page)">{{ page }}</button>
-                <span v-else style="padding:0 4px;">...</span>
-              </span>
-              <button :disabled="currentPage === totalPages" @click="goToPage(currentPage+1)">&gt;</button>
-            </div>
+            <Pagination 
+              :current-page="currentPage"
+              :total-pages="totalPages"
+              :total-recipes="totalRecipes"
+              :page-size="pageSize"
+              @page-change="goToPage"
+            />
           </div>
         </div>
       </div>
 
       <div v-if="loading" class="loading">Загрузка...</div>
-      
       <div class="recipes-grid">
-        <div v-for="recipe in recipes" :key="recipe.id" class="recipe-card" @click="openRecipe(recipe)">
-          <h3>{{ getRecipeName(recipe.name) }}</h3>
-          <div class="meta">
-            <span>⏱️ {{ recipe.minutes }} мин</span>
-            <span>🛒 {{ recipe.n_ingredients }} ингредиентов</span>
-          </div>
-          <div class="desc">{{ recipe.description?.slice(0, 80) }}...</div>
-        </div>
+        <RecipeCard 
+          v-for="recipe in recipes" 
+          :key="recipe.id" 
+          :recipe="recipe"
+          @click="openRecipe(recipe)"
+        />
+      </div>
+      <div v-if="!loading && recipes.length === 0" class="no-results">
+        <p>😔 Рецепты не найдены</p>
+        <p>Попробуйте изменить фильтры поиска</p>
       </div>
 
-      <!-- Модальное окно подробного рецепта -->
-      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal-content">
-          <button class="modal-close" @click="closeModal">×</button>
-          <h2>{{ getRecipeName(selectedRecipe.name) }}</h2>
-          <div class="meta">
-            <span>⏱️ {{ selectedRecipe.minutes }} мин</span>
-            <span>🛒 {{ selectedRecipe.n_ingredients }} ингредиентов</span>
-          </div>
-          <div class="desc">{{ selectedRecipe.description }}</div>
-          <div v-if="selectedRecipe.ingredients">
-            <h4>Ингредиенты:</h4>
-            <ul>
-              <li v-for="(ing, idx) in parseTags(selectedRecipe.ingredients)" :key="idx">{{ ing }}</li>
-            </ul>
-          </div>
-          <div v-if="selectedRecipe.tags">
-            <h4>Категории/теги:</h4>
-            <div class="tags">
-              <span v-for="tag in parseTags(selectedRecipe.tags)" :key="tag" class="tag">{{ tag }}</span>
-            </div>
-          </div>
-          <div v-if="selectedRecipe.steps">
-            <h4>Как готовить:</h4>
-            <ol>
-              <li v-for="(step, idx) in parseTags(selectedRecipe.steps)" :key="idx">{{ step }}</li>
-            </ol>
-          </div>
-          <div v-if="selectedRecipe.nutrition">
-            <h4>Пищевая ценность:</h4>
-            <ul style="padding-left:18px;">
-              <li v-for="(nutr, idx) in parseTags(selectedRecipe.nutrition)" :key="idx">
-                <template v-if="nutritionLabels[idx]">
-                  <b>{{ nutritionLabels[idx] }}:</b> {{ isNaN(Number(nutr)) ? nutr : Number(nutr).toFixed(2) }}
-                </template>
-                <template v-else>
-                  {{ isNaN(Number(nutr)) ? nutr : Number(nutr).toFixed(2) }}
-                </template>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      <RecipeModal 
+        v-if="showModal"
+        :recipe="selectedRecipe"
+        @close="closeModal"
+      />
+        
     </div>  
 
     <!-- Другие вкладки -->
@@ -241,9 +249,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { api } from './api.js';
 import * as filtersData from './filters.js';
+
+
+import Pagination from './components/Pagination.vue';
+import RecipeCard from './components/RecipeCard.vue';
+import RecipeModal from './components/RecipeModal.vue';
 
 // Вкладки
 const tabs = ['Рецепты', 'Пользователи', 'PP-рецепты', 'Взаимодействия'];
@@ -262,6 +275,15 @@ const totalPages = ref(1);
 const showModal = ref(false);
 const selectedRecipe = ref({});
 
+// Debounce функция для поиска
+let debounceTimer = null;
+const debouncedFetchRecipes = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    fetchRecipes();
+  }, 300);
+};
+
 function openRecipe(recipe) {
   selectedRecipe.value = recipe;
   showModal.value = true;
@@ -272,32 +294,16 @@ function closeModal() {
   selectedRecipe.value = {};
 }
 
-function getRecipeName(name) {
-  if (!name || /^-+$/.test(name.trim())) {
-    return 'Без названия';
-  }
-  return name;
-}
 
-// Подписи для nutrition
-const nutritionLabels = [
-  'Калории (kcal)',
-  'Жиры (g)',
-  'Насыщенные жиры (g)',
-  'Углеводы (g)',
-  'Сахар (g)',
-  'Белки (g)',
-  'Клетчатка (g)',
-  'Натрий (mg)',
-  'Холестерин (mg)'
-];
+
+
 
 // Фильтры
 const filters = reactive({
   name: '',
-  minMinutes: '',
-  minIngredients: '',
-  minCalories: '',
+  maxMinutes: 240,
+  maxIngredients: 50,
+  maxCalories: 2000,
   mealTypes: [],
   cuisines: [],
   diets: [],
@@ -316,34 +322,114 @@ const filters = reactive({
   onlyNoName: false
 });
 
-function parseTags(tags) {
-  if (!tags) return [];
-  if (Array.isArray(tags)) return tags.map(cleanText);
+// Вычисляемые свойства для активных фильтров
+const hasActiveFilters = computed(() => {
+  return filters.maxMinutes < 240 || 
+         filters.maxIngredients < 50 || 
+         filters.maxCalories < 2000 ||
+         filters.mealTypes.length > 0 ||
+         filters.cuisines.length > 0 ||
+         filters.diets.length > 0 ||
+         filters.methods.length > 0 ||
+         filters.occasions.length > 0 ||
+         filters.seasons.length > 0 ||
+         filters.difficulties.length > 0 ||
+         filters.ingredients.length > 0 ||
+         filters.dessertsSweets.length > 0 ||
+         filters.beverages.length > 0 ||
+         filters.meatSeafood.length > 0 ||
+         filters.timePreparation.length > 0 ||
+         filters.dietaryRestrictions.length > 0 ||
+         filters.breadsBaking.length > 0 ||
+         filters.specialOccasions.length > 0 ||
+         filters.onlyNoName;
+});
+
+const activeCategoryFilters = computed(() => {
+  const categories = [
+    { key: 'mealTypes', label: 'Тип блюда', selected: filters.mealTypes },
+    { key: 'cuisines', label: 'Кухня', selected: filters.cuisines },
+    { key: 'diets', label: 'Диета', selected: filters.diets },
+    { key: 'methods', label: 'Метод приготовления', selected: filters.methods },
+    { key: 'occasions', label: 'Праздники', selected: filters.occasions },
+    { key: 'seasons', label: 'Сезон', selected: filters.seasons },
+    { key: 'difficulties', label: 'Сложность', selected: filters.difficulties },
+    { key: 'ingredients', label: 'Ингредиенты', selected: filters.ingredients },
+    { key: 'dessertsSweets', label: 'Десерты', selected: filters.dessertsSweets },
+    { key: 'beverages', label: 'Напитки', selected: filters.beverages },
+    { key: 'meatSeafood', label: 'Мясо и морепродукты', selected: filters.meatSeafood },
+    { key: 'timePreparation', label: 'Время приготовления', selected: filters.timePreparation },
+    { key: 'dietaryRestrictions', label: 'Диетические ограничения', selected: filters.dietaryRestrictions },
+    { key: 'breadsBaking', label: 'Хлеб и выпечка', selected: filters.breadsBaking },
+    { key: 'specialOccasions', label: 'Особые случаи', selected: filters.specialOccasions }
+  ];
   
-  try {
-    const arr = JSON.parse(tags);
-    if (Array.isArray(arr)) return arr.map(cleanText);
-  } catch (e) {}
-  
-  return tags
-    .replace(/^[\[]|[\]]$/g, '')
-    .split(',')
-    .map(t => cleanText(t))
-    .filter(Boolean);
+  return categories.filter(cat => cat.selected.length > 0);
+});
+
+// Функции для работы с фильтрами
+function getCategoryLabel(key) {
+  const labels = {
+    mealTypes: 'Тип блюда',
+    cuisines: 'Кухня',
+    diets: 'Диета',
+    methods: 'Метод приготовления',
+    occasions: 'Праздники',
+    seasons: 'Сезон',
+    difficulties: 'Сложность',
+    ingredients: 'Ингредиенты',
+    dessertsSweets: 'Десерты',
+    beverages: 'Напитки',
+    meatSeafood: 'Мясо и морепродукты',
+    timePreparation: 'Время приготовления',
+    dietaryRestrictions: 'Диетические ограничения',
+    breadsBaking: 'Хлеб и выпечка',
+    specialOccasions: 'Особые случаи'
+  };
+  return labels[key] || key;
 }
 
-function cleanText(str) {
-  return String(str)
-    .replace(/^['"\\[]+|['"\\]]+$/g, '')
-    .replace(/^'+|'+$/g, '')
-    .replace(/^\s+|\s+$/g, '')
-    .replace(/^,+|,+$/g, '')
-    .replace(/^-+|-+$/g, '')
-    .replace(/^\d+\.\s*/, '')
-    .replace(/^'+/, '')
-    .replace(/'+$/, '')
-    .trim();
+function clearFilter(filterKey) {
+  if (filterKey === 'maxMinutes') {
+    filters[filterKey] = 240;
+  } else if (filterKey === 'maxIngredients') {
+    filters[filterKey] = 50;
+  } else if (filterKey === 'maxCalories') {
+    filters[filterKey] = 2000;
+  } else if (filterKey === 'onlyNoName') {
+    filters[filterKey] = false;
+  } else {
+    filters[filterKey] = '';
+  }
+  fetchRecipes();
 }
+
+function clearCategoryFilter(categoryKey) {
+  filters[categoryKey] = [];
+  fetchRecipes();
+}
+
+function clearAllFilters() {
+  Object.keys(filters).forEach(key => {
+    if (Array.isArray(filters[key])) {
+      filters[key] = [];
+    } else if (key === 'maxMinutes') {
+      filters[key] = 240;
+    } else if (key === 'maxIngredients') {
+      filters[key] = 50;
+    } else if (key === 'maxCalories') {
+      filters[key] = 2000;
+    } else if (key === 'onlyNoName') {
+      filters[key] = false;
+    } else {
+      filters[key] = '';
+    }
+  });
+  currentPage.value = 1;
+  fetchRecipes();
+}
+
+
 
 function collectTags(selected, dict) {
   const tags = selected.flatMap(key => dict[key] || []);
@@ -354,18 +440,26 @@ async function fetchRecipes() {
   loading.value = true;
   const params = {};
   if (filters.name) params.name = filters.name;
-  // Время приготовления
-  if (filters.minMinutes !== '' && filters.minMinutes !== undefined) params.min_minutes = 0;
-  if (filters.minMinutes !== '' && filters.minMinutes !== undefined && filters.minMinutes < 240) params.max_minutes = filters.minMinutes;
-  // Количество ингредиентов
-  if (filters.minIngredients !== '' && filters.minIngredients !== undefined) params.min_ingredients = 1;
-  if (filters.minIngredients !== '' && filters.minIngredients !== undefined && filters.minIngredients < 50) params.max_ingredients = filters.minIngredients;
-  // Калории
-  if (filters.minCalories !== '' && filters.minCalories !== undefined) params.min_calories = 0;
-  if (filters.minCalories !== '' && filters.minCalories !== undefined && filters.minCalories < 2000) params.max_calories = filters.minCalories;
+  
+  // ⏱️ ФИЛЬТРЫ ПО ВРЕМЕНИ ПРИГОТОВЛЕНИЯ
+  if (filters.maxMinutes < 240) {
+    params.max_minutes = filters.maxMinutes;
+  }
+  
+  // 🛒 ФИЛЬТРЫ ПО КОЛИЧЕСТВУ ИНГРЕДИЕНТОВ
+  if (filters.maxIngredients < 50) {
+    params.max_ingredients = filters.maxIngredients;
+  }
+  
+  // 🔥 ФИЛЬТРЫ ПО КАЛОРИЯМ
+  if (filters.maxCalories < 2000) {
+    params.max_calories = filters.maxCalories;
+  }
+  
   // Пагинация
   params.limit = pageSize.value;
   params.offset = (currentPage.value - 1) * pageSize.value;
+  
   // Все фильтры по тегам
   const tagFilters = [
     { key: 'mealTypes', dict: filtersData.mealType, param: 'meal_types' },
@@ -384,10 +478,12 @@ async function fetchRecipes() {
     { key: 'breadsBaking', dict: filtersData.breadsBaking, param: 'breads_baking' },
     { key: 'specialOccasions', dict: filtersData.specialOccasions, param: 'special_occasions' },
   ];
+  
   tagFilters.forEach(({ key, dict, param }) => {
     const tags = collectTags(filters[key], dict);
     if (tags.length) params[param] = tags.join(',');
   });
+  
   try {
     const data = await api.getRecipes(params);
     let result = data.recipes || data || [];
@@ -418,18 +514,6 @@ function goToPage(page) {
   fetchRecipes();
 }
 
-function clearFilters() {
-  Object.keys(filters).forEach(key => {
-    if (Array.isArray(filters[key])) {
-      filters[key] = [];
-    } else {
-      filters[key] = '';
-    }
-  });
-  currentPage.value = 1;
-  fetchRecipes();
-}
-
 function switchTab(tab) {
   currentPage.value = 1;
   currentTab.value = tab;
@@ -438,168 +522,9 @@ function switchTab(tab) {
   }
 }
 
-function getPageList() {
-  const pages = [];
-  if (totalPages.value <= 9) {
-    for (let i = 1; i <= totalPages.value; i++) pages.push(i);
-  } else {
-    if (currentPage.value <= 5) {
-      pages.push(1,2,3,4,5,6,'...',totalPages.value);
-    } else if (currentPage.value >= totalPages.value - 4) {
-      pages.push(1,'...',totalPages.value-5,totalPages.value-4,totalPages.value-3,totalPages.value-2,totalPages.value-1,totalPages.value);
-    } else {
-      pages.push(1,'...',currentPage.value-1,currentPage.value,currentPage.value+1,'...',totalPages.value);
-    }
-  }
-  return pages;
-}
-
 // Загрузка рецептов при монтировании
 onMounted(() => {
   fetchRecipes();
 });
 </script>
-
-<style scoped>
-/* Стили остаются без изменений */
-.tabs {
-  margin: 20px 0;
-}
-
-.tabs button {
-  padding: 10px 20px;
-  margin-right: 10px;
-  border: 1px solid #ccc;
-  background: white;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-}
-
-.tabs button.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
-.tabs button:hover {
-  background: #f8f9fa;
-}
-
-.tabs button.active:hover {
-  background: #0056b3;
-}
-
-.loading {
-  text-align: center;
-  padding: 20px;
-  font-size: 1.2em;
-  color: #666;
-}
-
-.recipes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.recipe-card {
-  border: 1px solid #ddd;
-  padding: 15px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
-}
-
-.recipe-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-color: #007bff;
-}
-
-.meta {
-  display: flex;
-  justify-content: space-between;
-  margin: 10px 0;
-  font-size: 0.9em;
-  color: #666;
-}
-
-.desc {
-  color: #555;
-  line-height: 1.4;
-}
-
-/* Стили для модального окна */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  padding: 30px;
-  max-width: 800px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-.modal-close {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s ease;
-}
-
-.modal-close:hover {
-  background: #f0f0f0;
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.tag {
-  display: inline-block;
-  background: #e9ecef;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.85em;
-  color: #495057;
-}
-
-@media (max-width: 768px) {
-  .modal-content {
-    padding: 20px;
-    width: 95%;
-  }
-}
-</style>
+<style scoped src="./styles/app.css"></style>
