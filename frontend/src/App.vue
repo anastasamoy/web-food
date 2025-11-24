@@ -1,7 +1,23 @@
 <template>
   <div>
+    <!-- ХЕДЕР С АУТЕНТИФИКАЦИЕЙ -->
+    <header class="auth-header">
+      <div class="header-content">
+        <h1>🍳 Кулинарная книга</h1>
+        <div class="auth-buttons">
+          <button v-if="!isAuthenticated" @click="showLogin = true" class="auth-btn">Войти</button>
+          <button v-if="!isAuthenticated" @click="showRegister = true" class="auth-btn register">Регистрация</button>
+          <div v-if="isAuthenticated" class="user-menu">
+            <span class="user-greeting">Привет, {{ user?.displayName || user?.email }}!</span>
+            <button v-if="isAdmin" @click="switchToAdmin" class="auth-btn admin">Админка</button>
+            <button @click="handleLogout" class="auth-btn logout">Выйти</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- СУЩЕСТВУЮЩИЙ КОНТЕНТ -->
     <header class="header">
-      <h1>🍳 Кулинарная книга</h1>
       <p>Просмотр таблиц: рецепты, пользователи, взаимодействия, PP-рецепты</p>
     </header>
     
@@ -18,6 +34,7 @@
     </div>
 
     <div v-if="currentTab === 'Рецепты'" class="tab-content">
+      <!-- ВАШ СУЩЕСТВУЮЩИЙ КОНТЕНТ ДЛЯ РЕЦЕПТОВ -->
       <div class="filters">
         <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; min-width:220px;">
@@ -245,286 +262,399 @@
     <div v-if="currentTab !== 'Рецепты'" class="tab-content">
       <p>Вкладка "{{ currentTab }}" в разработке</p>
     </div>
+
+    <!-- Модальные окна аутентификации -->
+    <LoginForm 
+      v-if="showLogin"
+      @success="showLogin = false"
+      @close="showLogin = false"
+      @switch-to-register="switchToRegister"
+    />
+    <RegisterForm 
+      v-if="showRegister"
+      @success="showRegister = false"
+      @close="showRegister = false"
+      @switch-to-login="switchToLogin"
+    />
   </div>
 </template>
 
-<script setup>
+<script>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { api } from './api.js';
 import * as filtersData from './filters.js';
+import AuthService from './services/authService.js';
 
+import Pagination from './components/common/Pagination.vue';
+import RecipeCard from './components/common/RecipeCard.vue';
+import RecipeModal from './components/common/RecipeModal.vue';
+import LoginForm from './components/auth/LoginForm.vue';
+import RegisterForm from './components/auth/RegisterForm.vue';
 
-import Pagination from './components/Pagination.vue';
-import RecipeCard from './components/RecipeCard.vue';
-import RecipeModal from './components/RecipeModal.vue';
+export default {
+  name: 'App',
+  components: {
+    Pagination,
+    RecipeCard,
+    RecipeModal,
+    LoginForm,
+    RegisterForm
+  },
+  setup() {
+    // Вкладки
+    const tabs = ['Рецепты', 'Пользователи', 'PP-рецепты', 'Взаимодействия'];
+    const currentTab = ref('Рецепты');
 
-// Вкладки
-const tabs = ['Рецепты', 'Пользователи', 'PP-рецепты', 'Взаимодействия'];
-const currentTab = ref('Рецепты');
+    // Состояния
+    const loading = ref(false);
+    const recipes = ref([]);
+    const totalRecipes = ref(0);
+    const pageSizes = [4, 8, 16, 32, 64, 128];
+    const pageSize = ref(8);
+    const currentPage = ref(1);
+    const totalPages = ref(1);
 
-// Состояния
-const loading = ref(false);
-const recipes = ref([]);
-const totalRecipes = ref(0);
-const pageSizes = [4, 8, 16, 32, 64, 128];
-const pageSize = ref(8);
-const currentPage = ref(1);
-const totalPages = ref(1);
+    // Модальное окно для подробного рецепта
+    const showModal = ref(false);
+    const selectedRecipe = ref({});
 
-// Модальное окно для подробного рецепта
-const showModal = ref(false);
-const selectedRecipe = ref({});
+    // Аутентификация
+    const isAuthenticated = ref(false);
+    const user = ref(null);
+    const isAdmin = ref(false);
+    const showLogin = ref(false);
+    const showRegister = ref(false);
 
-// Debounce функция для поиска
-let debounceTimer = null;
-const debouncedFetchRecipes = () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    fetchRecipes();
-  }, 300);
+    // Debounce функция для поиска
+    let debounceTimer = null;
+    const debouncedFetchRecipes = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchRecipes();
+      }, 300);
+    };
+
+    const openRecipe = (recipe) => {
+      selectedRecipe.value = recipe;
+      showModal.value = true;
+    };
+
+    const closeModal = () => {
+      showModal.value = false;
+      selectedRecipe.value = {};
+    };
+
+    // Фильтры
+    const filters = reactive({
+      name: '',
+      maxMinutes: 240,
+      maxIngredients: 50,
+      maxCalories: 2000,
+      mealTypes: [],
+      cuisines: [],
+      diets: [],
+      methods: [],
+      occasions: [],
+      seasons: [],
+      difficulties: [],
+      ingredients: [],
+      dessertsSweets: [],
+      beverages: [],
+      meatSeafood: [],
+      timePreparation: [],
+      dietaryRestrictions: [],
+      breadsBaking: [],
+      specialOccasions: [],
+      onlyNoName: false
+    });
+
+    // Вычисляемые свойства для активных фильтров
+    const hasActiveFilters = computed(() => {
+      return filters.maxMinutes < 240 || 
+             filters.maxIngredients < 50 || 
+             filters.maxCalories < 2000 ||
+             filters.mealTypes.length > 0 ||
+             filters.cuisines.length > 0 ||
+             filters.diets.length > 0 ||
+             filters.methods.length > 0 ||
+             filters.occasions.length > 0 ||
+             filters.seasons.length > 0 ||
+             filters.difficulties.length > 0 ||
+             filters.ingredients.length > 0 ||
+             filters.dessertsSweets.length > 0 ||
+             filters.beverages.length > 0 ||
+             filters.meatSeafood.length > 0 ||
+             filters.timePreparation.length > 0 ||
+             filters.dietaryRestrictions.length > 0 ||
+             filters.breadsBaking.length > 0 ||
+             filters.specialOccasions.length > 0 ||
+             filters.onlyNoName;
+    });
+
+    const activeCategoryFilters = computed(() => {
+      const categories = [
+        { key: 'mealTypes', label: 'Тип блюда', selected: filters.mealTypes },
+        { key: 'cuisines', label: 'Кухня', selected: filters.cuisines },
+        { key: 'diets', label: 'Диета', selected: filters.diets },
+        { key: 'methods', label: 'Метод приготовления', selected: filters.methods },
+        { key: 'occasions', label: 'Праздники', selected: filters.occasions },
+        { key: 'seasons', label: 'Сезон', selected: filters.seasons },
+        { key: 'difficulties', label: 'Сложность', selected: filters.difficulties },
+        { key: 'ingredients', label: 'Ингредиенты', selected: filters.ingredients },
+        { key: 'dessertsSweets', label: 'Десерты', selected: filters.dessertsSweets },
+        { key: 'beverages', label: 'Напитки', selected: filters.beverages },
+        { key: 'meatSeafood', label: 'Мясо и морепродукты', selected: filters.meatSeafood },
+        { key: 'timePreparation', label: 'Время приготовления', selected: filters.timePreparation },
+        { key: 'dietaryRestrictions', label: 'Диетические ограничения', selected: filters.dietaryRestrictions },
+        { key: 'breadsBaking', label: 'Хлеб и выпечка', selected: filters.breadsBaking },
+        { key: 'specialOccasions', label: 'Особые случаи', selected: filters.specialOccasions }
+      ];
+      
+      return categories.filter(cat => cat.selected.length > 0);
+    });
+
+    // Функции для работы с фильтрами
+    const getCategoryLabel = (key) => {
+      const labels = {
+        mealTypes: 'Тип блюда',
+        cuisines: 'Кухня',
+        diets: 'Диета',
+        methods: 'Метод приготовления',
+        occasions: 'Праздники',
+        seasons: 'Сезон',
+        difficulties: 'Сложность',
+        ingredients: 'Ингредиенты',
+        dessertsSweets: 'Десерты',
+        beverages: 'Напитки',
+        meatSeafood: 'Мясо и морепродукты',
+        timePreparation: 'Время приготовления',
+        dietaryRestrictions: 'Диетические ограничения',
+        breadsBaking: 'Хлеб и выпечка',
+        specialOccasions: 'Особые случаи'
+      };
+      return labels[key] || key;
+    };
+
+    const clearFilter = (filterKey) => {
+      if (filterKey === 'maxMinutes') {
+        filters[filterKey] = 240;
+      } else if (filterKey === 'maxIngredients') {
+        filters[filterKey] = 50;
+      } else if (filterKey === 'maxCalories') {
+        filters[filterKey] = 2000;
+      } else if (filterKey === 'onlyNoName') {
+        filters[filterKey] = false;
+      } else {
+        filters[filterKey] = '';
+      }
+      fetchRecipes();
+    };
+
+    const clearCategoryFilter = (categoryKey) => {
+      filters[categoryKey] = [];
+      fetchRecipes();
+    };
+
+    const clearAllFilters = () => {
+      Object.keys(filters).forEach(key => {
+        if (Array.isArray(filters[key])) {
+          filters[key] = [];
+        } else if (key === 'maxMinutes') {
+          filters[key] = 240;
+        } else if (key === 'maxIngredients') {
+          filters[key] = 50;
+        } else if (key === 'maxCalories') {
+          filters[key] = 2000;
+        } else if (key === 'onlyNoName') {
+          filters[key] = false;
+        } else {
+          filters[key] = '';
+        }
+      });
+      currentPage.value = 1;
+      fetchRecipes();
+    };
+
+    const collectTags = (selected, dict) => {
+      const tags = selected.flatMap(key => dict[key] || []);
+      return Array.from(new Set(tags));
+    };
+
+    const fetchRecipes = async () => {
+      loading.value = true;
+      const params = {};
+      if (filters.name) params.name = filters.name;
+      
+      // ⏱️ ФИЛЬТРЫ ПО ВРЕМЕНИ ПРИГОТОВЛЕНИЯ
+      if (filters.maxMinutes < 240) {
+        params.max_minutes = filters.maxMinutes;
+      }
+      
+      // 🛒 ФИЛЬТРЫ ПО КОЛИЧЕСТВУ ИНГРЕДИЕНТОВ
+      if (filters.maxIngredients < 50) {
+        params.max_ingredients = filters.maxIngredients;
+      }
+      
+      // 🔥 ФИЛЬТРЫ ПО КАЛОРИЯМ
+      if (filters.maxCalories < 2000) {
+        params.max_calories = filters.maxCalories;
+      }
+      
+      // Пагинация
+      params.limit = pageSize.value;
+      params.offset = (currentPage.value - 1) * pageSize.value;
+      
+      // Все фильтры по тегам
+      const tagFilters = [
+        { key: 'mealTypes', dict: filtersData.mealType, param: 'meal_types' },
+        { key: 'cuisines', dict: filtersData.cuisine, param: 'cuisines' },
+        { key: 'diets', dict: filtersData.healthy, param: 'diets' },
+        { key: 'methods', dict: filtersData.cookingMethod, param: 'methods' },
+        { key: 'occasions', dict: filtersData.holidays, param: 'occasions' },
+        { key: 'seasons', dict: filtersData.seasonal, param: 'seasons' },
+        { key: 'difficulties', dict: filtersData.difficulty, param: 'difficulties' },
+        { key: 'ingredients', dict: filtersData.ingredients, param: 'ingredients' },
+        { key: 'dessertsSweets', dict: filtersData.dessertsSweets, param: 'desserts_sweets' },
+        { key: 'beverages', dict: filtersData.beverages, param: 'beverages' },
+        { key: 'meatSeafood', dict: filtersData.meatSeafood, param: 'meat_seafood' },
+        { key: 'timePreparation', dict: filtersData.timePreparation, param: 'time_preparation' },
+        { key: 'dietaryRestrictions', dict: filtersData.dietaryRestrictions, param: 'dietary_restrictions' },
+        { key: 'breadsBaking', dict: filtersData.breadsBaking, param: 'breads_baking' },
+        { key: 'specialOccasions', dict: filtersData.specialOccasions, param: 'special_occasions' },
+      ];
+      
+      tagFilters.forEach(({ key, dict, param }) => {
+        const tags = collectTags(filters[key], dict);
+        if (tags.length) params[param] = tags.join(',');
+      });
+      
+      try {
+        const data = await api.getRecipes(params);
+        let result = data.recipes || data || [];
+        totalRecipes.value = data.total || result.length;
+        totalPages.value = Math.max(1, Math.ceil(totalRecipes.value / pageSize.value));
+        if (filters.onlyNoName) {
+          result = result.filter(r => !r.name || /^-+$/.test(r.name.trim()));
+        }
+        recipes.value = result;
+      } catch (e) {
+        console.error('Error fetching recipes:', e);
+        recipes.value = [];
+        totalRecipes.value = 0;
+        totalPages.value = 1;
+      }
+      loading.value = false;
+    };
+
+    const changePageSize = (size) => {
+      pageSize.value = size;
+      currentPage.value = 1;
+      fetchRecipes();
+    };
+
+    const goToPage = (page) => {
+      if (page < 1 || page > totalPages.value) return;
+      currentPage.value = page;
+      fetchRecipes();
+    };
+
+    const switchTab = (tab) => {
+      currentPage.value = 1;
+      currentTab.value = tab;
+      if(tab === 'Рецепты') {
+        fetchRecipes();
+      }
+    };
+
+    // Функции аутентификации
+    const handleLogout = async () => {
+      try {
+        await AuthService.logout();
+        isAuthenticated.value = false;
+        user.value = null;
+        isAdmin.value = false;
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    };
+
+    const switchToAdmin = () => {
+      // Позже добавим админ-панель
+      alert('Админ-панель в разработке');
+    };
+
+    const switchToRegister = () => {
+      showLogin.value = false;
+      showRegister.value = true;
+    };
+
+    const switchToLogin = () => {
+      showRegister.value = false;
+      showLogin.value = true;
+    };
+
+    // Проверка аутентификации при загрузке
+    onMounted(() => {
+      AuthService.onAuthChange((currentUser) => {
+        isAuthenticated.value = !!currentUser;
+        user.value = currentUser;
+        // Временная проверка админа по email
+        isAdmin.value = currentUser?.email === 'admin@webfood.com';
+      });
+      
+      // Загрузка рецептов при монтировании
+      fetchRecipes();
+    });
+
+    return {
+      // Вкладки
+      tabs,
+      currentTab,
+      switchTab,
+
+      // Рецепты
+      loading,
+      recipes,
+      totalRecipes,
+      pageSizes,
+      pageSize,
+      currentPage,
+      totalPages,
+      showModal,
+      selectedRecipe,
+
+      // Фильтры
+      filters,
+      filtersData, // ← ДОБАВЬТЕ ЭТУ СТРОЧКУ
+      hasActiveFilters,
+      activeCategoryFilters,
+
+      // Аутентификация
+      isAuthenticated,
+      user,
+      isAdmin,
+      showLogin,
+      showRegister,
+
+      // Методы
+      debouncedFetchRecipes,
+      openRecipe,
+      closeModal,
+      getCategoryLabel,
+      clearFilter,
+      clearCategoryFilter,
+      clearAllFilters,
+      fetchRecipes,
+      changePageSize,
+      goToPage,
+      handleLogout,
+      switchToAdmin,
+      switchToRegister,
+      switchToLogin
+    };
+  }
 };
-
-function openRecipe(recipe) {
-  selectedRecipe.value = recipe;
-  showModal.value = true;
-}
-
-function closeModal() {
-  showModal.value = false;
-  selectedRecipe.value = {};
-}
-
-
-
-
-
-// Фильтры
-const filters = reactive({
-  name: '',
-  maxMinutes: 240,
-  maxIngredients: 50,
-  maxCalories: 2000,
-  mealTypes: [],
-  cuisines: [],
-  diets: [],
-  methods: [],
-  occasions: [],
-  seasons: [],
-  difficulties: [],
-  ingredients: [],
-  dessertsSweets: [],
-  beverages: [],
-  meatSeafood: [],
-  timePreparation: [],
-  dietaryRestrictions: [],
-  breadsBaking: [],
-  specialOccasions: [],
-  onlyNoName: false
-});
-
-// Вычисляемые свойства для активных фильтров
-const hasActiveFilters = computed(() => {
-  return filters.maxMinutes < 240 || 
-         filters.maxIngredients < 50 || 
-         filters.maxCalories < 2000 ||
-         filters.mealTypes.length > 0 ||
-         filters.cuisines.length > 0 ||
-         filters.diets.length > 0 ||
-         filters.methods.length > 0 ||
-         filters.occasions.length > 0 ||
-         filters.seasons.length > 0 ||
-         filters.difficulties.length > 0 ||
-         filters.ingredients.length > 0 ||
-         filters.dessertsSweets.length > 0 ||
-         filters.beverages.length > 0 ||
-         filters.meatSeafood.length > 0 ||
-         filters.timePreparation.length > 0 ||
-         filters.dietaryRestrictions.length > 0 ||
-         filters.breadsBaking.length > 0 ||
-         filters.specialOccasions.length > 0 ||
-         filters.onlyNoName;
-});
-
-const activeCategoryFilters = computed(() => {
-  const categories = [
-    { key: 'mealTypes', label: 'Тип блюда', selected: filters.mealTypes },
-    { key: 'cuisines', label: 'Кухня', selected: filters.cuisines },
-    { key: 'diets', label: 'Диета', selected: filters.diets },
-    { key: 'methods', label: 'Метод приготовления', selected: filters.methods },
-    { key: 'occasions', label: 'Праздники', selected: filters.occasions },
-    { key: 'seasons', label: 'Сезон', selected: filters.seasons },
-    { key: 'difficulties', label: 'Сложность', selected: filters.difficulties },
-    { key: 'ingredients', label: 'Ингредиенты', selected: filters.ingredients },
-    { key: 'dessertsSweets', label: 'Десерты', selected: filters.dessertsSweets },
-    { key: 'beverages', label: 'Напитки', selected: filters.beverages },
-    { key: 'meatSeafood', label: 'Мясо и морепродукты', selected: filters.meatSeafood },
-    { key: 'timePreparation', label: 'Время приготовления', selected: filters.timePreparation },
-    { key: 'dietaryRestrictions', label: 'Диетические ограничения', selected: filters.dietaryRestrictions },
-    { key: 'breadsBaking', label: 'Хлеб и выпечка', selected: filters.breadsBaking },
-    { key: 'specialOccasions', label: 'Особые случаи', selected: filters.specialOccasions }
-  ];
-  
-  return categories.filter(cat => cat.selected.length > 0);
-});
-
-// Функции для работы с фильтрами
-function getCategoryLabel(key) {
-  const labels = {
-    mealTypes: 'Тип блюда',
-    cuisines: 'Кухня',
-    diets: 'Диета',
-    methods: 'Метод приготовления',
-    occasions: 'Праздники',
-    seasons: 'Сезон',
-    difficulties: 'Сложность',
-    ingredients: 'Ингредиенты',
-    dessertsSweets: 'Десерты',
-    beverages: 'Напитки',
-    meatSeafood: 'Мясо и морепродукты',
-    timePreparation: 'Время приготовления',
-    dietaryRestrictions: 'Диетические ограничения',
-    breadsBaking: 'Хлеб и выпечка',
-    specialOccasions: 'Особые случаи'
-  };
-  return labels[key] || key;
-}
-
-function clearFilter(filterKey) {
-  if (filterKey === 'maxMinutes') {
-    filters[filterKey] = 240;
-  } else if (filterKey === 'maxIngredients') {
-    filters[filterKey] = 50;
-  } else if (filterKey === 'maxCalories') {
-    filters[filterKey] = 2000;
-  } else if (filterKey === 'onlyNoName') {
-    filters[filterKey] = false;
-  } else {
-    filters[filterKey] = '';
-  }
-  fetchRecipes();
-}
-
-function clearCategoryFilter(categoryKey) {
-  filters[categoryKey] = [];
-  fetchRecipes();
-}
-
-function clearAllFilters() {
-  Object.keys(filters).forEach(key => {
-    if (Array.isArray(filters[key])) {
-      filters[key] = [];
-    } else if (key === 'maxMinutes') {
-      filters[key] = 240;
-    } else if (key === 'maxIngredients') {
-      filters[key] = 50;
-    } else if (key === 'maxCalories') {
-      filters[key] = 2000;
-    } else if (key === 'onlyNoName') {
-      filters[key] = false;
-    } else {
-      filters[key] = '';
-    }
-  });
-  currentPage.value = 1;
-  fetchRecipes();
-}
-
-
-
-function collectTags(selected, dict) {
-  const tags = selected.flatMap(key => dict[key] || []);
-  return Array.from(new Set(tags));
-}
-
-async function fetchRecipes() {
-  loading.value = true;
-  const params = {};
-  if (filters.name) params.name = filters.name;
-  
-  // ⏱️ ФИЛЬТРЫ ПО ВРЕМЕНИ ПРИГОТОВЛЕНИЯ
-  if (filters.maxMinutes < 240) {
-    params.max_minutes = filters.maxMinutes;
-  }
-  
-  // 🛒 ФИЛЬТРЫ ПО КОЛИЧЕСТВУ ИНГРЕДИЕНТОВ
-  if (filters.maxIngredients < 50) {
-    params.max_ingredients = filters.maxIngredients;
-  }
-  
-  // 🔥 ФИЛЬТРЫ ПО КАЛОРИЯМ
-  if (filters.maxCalories < 2000) {
-    params.max_calories = filters.maxCalories;
-  }
-  
-  // Пагинация
-  params.limit = pageSize.value;
-  params.offset = (currentPage.value - 1) * pageSize.value;
-  
-  // Все фильтры по тегам
-  const tagFilters = [
-    { key: 'mealTypes', dict: filtersData.mealType, param: 'meal_types' },
-    { key: 'cuisines', dict: filtersData.cuisine, param: 'cuisines' },
-    { key: 'diets', dict: filtersData.healthy, param: 'diets' },
-    { key: 'methods', dict: filtersData.cookingMethod, param: 'methods' },
-    { key: 'occasions', dict: filtersData.holidays, param: 'occasions' },
-    { key: 'seasons', dict: filtersData.seasonal, param: 'seasons' },
-    { key: 'difficulties', dict: filtersData.difficulty, param: 'difficulties' },
-    { key: 'ingredients', dict: filtersData.ingredients, param: 'ingredients' },
-    { key: 'dessertsSweets', dict: filtersData.dessertsSweets, param: 'desserts_sweets' },
-    { key: 'beverages', dict: filtersData.beverages, param: 'beverages' },
-    { key: 'meatSeafood', dict: filtersData.meatSeafood, param: 'meat_seafood' },
-    { key: 'timePreparation', dict: filtersData.timePreparation, param: 'time_preparation' },
-    { key: 'dietaryRestrictions', dict: filtersData.dietaryRestrictions, param: 'dietary_restrictions' },
-    { key: 'breadsBaking', dict: filtersData.breadsBaking, param: 'breads_baking' },
-    { key: 'specialOccasions', dict: filtersData.specialOccasions, param: 'special_occasions' },
-  ];
-  
-  tagFilters.forEach(({ key, dict, param }) => {
-    const tags = collectTags(filters[key], dict);
-    if (tags.length) params[param] = tags.join(',');
-  });
-  
-  try {
-    const data = await api.getRecipes(params);
-    let result = data.recipes || data || [];
-    totalRecipes.value = data.total || result.length;
-    totalPages.value = Math.max(1, Math.ceil(totalRecipes.value / pageSize.value));
-    if (filters.onlyNoName) {
-      result = result.filter(r => !r.name || /^-+$/.test(r.name.trim()));
-    }
-    recipes.value = result;
-  } catch (e) {
-    console.error('Error fetching recipes:', e);
-    recipes.value = [];
-    totalRecipes.value = 0;
-    totalPages.value = 1;
-  }
-  loading.value = false;
-}
-
-function changePageSize(size) {
-  pageSize.value = size;
-  currentPage.value = 1;
-  fetchRecipes();
-}
-
-function goToPage(page) {
-  if (page < 1 || page > totalPages.value) return;
-  currentPage.value = page;
-  fetchRecipes();
-}
-
-function switchTab(tab) {
-  currentPage.value = 1;
-  currentTab.value = tab;
-  if(tab === 'Рецепты') {
-    fetchRecipes();
-  }
-}
-
-// Загрузка рецептов при монтировании
-onMounted(() => {
-  fetchRecipes();
-});
 </script>
+
 <style scoped src="./styles/app.css"></style>
+<style src="./styles/auth.css"></style>
