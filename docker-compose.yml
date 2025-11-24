@@ -1,0 +1,25 @@
+services:
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/recipes_db
+      SECRET_KEY: your_secret_key
+      FRONTEND_URL: http://localhost:3000
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: recipes_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
