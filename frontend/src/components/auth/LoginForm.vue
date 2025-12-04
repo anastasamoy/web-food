@@ -1,35 +1,35 @@
 <template>
   <div class="modal-overlay" @click="$emit('close')">
     <div class="modal-content" @click.stop>
-      <h2>Вход в систему</h2>
+      <h2>Prihlásenie do systému</h2>
       <form @submit.prevent="handleLogin" class="auth-form">
         <div class="form-group">
           <label>Email:</label>
           <input 
             v-model="credentials.email" 
             type="email" 
-            placeholder="Введите ваш email" 
+            placeholder="Zadajte svoj e-mail" 
             required
           >
         </div>
         
         <div class="form-group">
-          <label>Пароль:</label>
+          <label>Heslo:</label>
           <input 
             v-model="credentials.password" 
             type="password" 
-            placeholder="Введите пароль" 
+            placeholder="Zadajte heslo" 
             required
           >
         </div>
 
         <button type="submit" :disabled="loading" class="auth-button">
-          {{ loading ? 'Вход...' : 'Войти' }}
+          {{ loading ? 'Vstup...' : 'Prihlásiť sa' }}
         </button>
 
         <div class="auth-links">
-          <p>Нет аккаунта? 
-            <a href="#" @click.prevent="switchToRegister">Зарегистрироваться</a>
+          <p>Nemáte účet? 
+            <a href="#" @click.prevent="switchToRegister">Registrácia</a>
           </p>
         </div>
       </form>

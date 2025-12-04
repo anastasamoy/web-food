@@ -1,22 +1,22 @@
 <template>
   <header class="auth-header">
     <div class="header-content">
-      <h1>🍳 Кулинарная книга</h1>
+      <h1>🍳 Kuchárska kniha</h1>
       <div class="auth-buttons">
         <!-- Используем emits вместо прямого изменения props -->
-        <button v-if="!isAuthenticated" @click="$emit('show-login')" class="auth-btn">Войти</button>
-        <button v-if="!isAuthenticated" @click="$emit('show-register')" class="auth-btn register">Регистрация</button>
+        <button v-if="!isAuthenticated" @click="$emit('show-login')" class="auth-btn">Prihlásiť sa</button>
+        <button v-if="!isAuthenticated" @click="$emit('show-register')" class="auth-btn register">Registrácia</button>
         <div v-if="isAuthenticated" class="user-menu">
-          <span class="user-greeting">Привет, {{ user?.displayName || user?.email }}!</span>
+          <span class="user-greeting">Ahoj, {{ user?.displayName || user?.email }}!</span>
           <button v-if="isAdmin" @click="switchToAdmin" class="auth-btn admin">Админка</button>
-          <button @click="handleLogout" class="auth-btn logout">Выйти</button>
+          <button @click="handleLogout" class="auth-btn logout">Odhlásiť sa</button>
         </div>
       </div>
     </div>
   </header>
 
   <header class="header">
-    <p>Просмотр таблиц: рецепты, пользователи, взаимодействия, PP-рецепты</p>
+    <p>Prezeranie tabuliek: recepty, používatelia, interakcie, PP recepty</p>
   </header>
 </template>
 

@@ -39,8 +39,8 @@
         </button>
 
         <div class="auth-links">
-          <p>Уже есть аккаунт? 
-            <a href="#" @click.prevent="switchToLogin">Войти</a>
+          <p>Už máte účet? 
+            <a href="#" @click.prevent="switchToLogin">Prihlásiť sa</a>
           </p>
         </div>
       </form>

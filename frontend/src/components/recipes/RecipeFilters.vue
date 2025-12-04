@@ -2,7 +2,7 @@
   <div class="filters">
     <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-end;">
       <div style="display:flex; flex-direction:column; min-width:220px;">
-        <label>Название рецепта:
+        <label>Názov receptu:
           <input 
             :value="filters.name" 
             @input="updateFilter('name', $event.target.value)"
@@ -11,7 +11,7 @@
           />
         </label>
         
-        <label style="margin-top:8px;">⏱️ Время приготовления (минут)
+        <label style="margin-top:8px;">⏱️Čas prípravy (minút)
           <div style="display:flex;align-items:center;gap:8px;">
             <span>0</span>
             <input 
@@ -26,7 +26,7 @@
           </div>
         </label>
         
-        <label style="margin-top:8px;">🛒 Количество ингредиентов
+        <label style="margin-top:8px;">🛒 Množstvo ingrediencií
           <div style="display:flex;align-items:center;gap:8px;">
             <span>1</span>
             <input 
@@ -41,7 +41,7 @@
           </div>
         </label>
         
-        <label style="margin-top:8px;">🔥 Калории
+        <label style="margin-top:8px;">🔥 Kalórie
           <div style="display:flex;align-items:center;gap:8px;">
             <span>0</span>
             <input 
@@ -60,7 +60,7 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%;">
         <div style="display: flex; flex-wrap: wrap; gap: 16px;">
           <label>
-            Тип блюда:
+            Typ jedla:
             <select 
               :value="filters.mealTypes" 
               @change="updateMultiSelect('mealTypes', $event.target)" 
@@ -71,7 +71,7 @@
             </select>
           </label>
           <label>
-            Кухня:
+            Kuchyňa:
             <select 
               :value="filters.cuisines" 
               @change="updateMultiSelect('cuisines', $event.target)" 
@@ -82,7 +82,7 @@
             </select>
           </label>
           <label>
-            Диета:
+            Strava:
             <select 
               :value="filters.diets" 
               @change="updateMultiSelect('diets', $event.target)" 
@@ -93,7 +93,7 @@
             </select>
           </label>
           <label>
-            Метод приготовления:
+            Spôsob prípravy:
             <select 
               :value="filters.methods" 
               @change="updateMultiSelect('methods', $event.target)" 
@@ -104,7 +104,7 @@
             </select>
           </label>
           <label>
-            Праздники:
+            Sviatky:
             <select 
               :value="filters.occasions" 
               @change="updateMultiSelect('occasions', $event.target)" 
@@ -115,7 +115,7 @@
             </select>
           </label>
           <label>
-            Сезон:
+            Sezóna:
             <select 
               :value="filters.seasons" 
               @change="updateMultiSelect('seasons', $event.target)" 
@@ -126,7 +126,7 @@
             </select>
           </label>
           <label>
-            Сложность:
+            Zložitosť:
             <select 
               :value="filters.difficulties" 
               @change="updateMultiSelect('difficulties', $event.target)" 
@@ -140,7 +140,7 @@
 
         <div style="display: flex; flex-wrap: wrap; gap: 16px;">
           <label>
-            Ингредиенты:
+            Zložky:
             <select 
               :value="filters.ingredients" 
               @change="updateMultiSelect('ingredients', $event.target)" 
@@ -151,7 +151,7 @@
             </select>
           </label>
           <label>
-            Десерты:
+            Dezerty:
             <select 
               :value="filters.dessertsSweets" 
               @change="updateMultiSelect('dessertsSweets', $event.target)" 
@@ -162,7 +162,7 @@
             </select>
           </label>
           <label>
-            Напитки:
+            Nápoje:
             <select 
               :value="filters.beverages" 
               @change="updateMultiSelect('beverages', $event.target)" 
@@ -173,7 +173,7 @@
             </select>
           </label>
           <label>
-            Мясо и морепродукты:
+            Mäso a morské plody:
             <select 
               :value="filters.meatSeafood" 
               @change="updateMultiSelect('meatSeafood', $event.target)" 
@@ -185,7 +185,7 @@
           </label>
           
           <label>
-            Время приготовления:
+            Čas prípravy:
             <select 
               :value="filters.timePreparation" 
               @change="updateMultiSelect('timePreparation', $event.target)" 
@@ -196,7 +196,7 @@
             </select>
           </label>
           <label>
-            Диетические ограничения:
+            Diétne obmedzenia:
             <select 
               :value="filters.dietaryRestrictions" 
               @change="updateMultiSelect('dietaryRestrictions', $event.target)" 
@@ -207,7 +207,7 @@
             </select>
           </label>
           <label>
-            Хлеб и выпечка:
+            Chlieb a pečivo:
             <select 
               :value="filters.breadsBaking" 
               @change="updateMultiSelect('breadsBaking', $event.target)" 
@@ -218,7 +218,7 @@
             </select>
           </label>
           <label>
-            Особые случаи:
+            Osobitné prípady:
             <select 
               :value="filters.specialOccasions" 
               @change="updateMultiSelect('specialOccasions', $event.target)" 
@@ -232,18 +232,18 @@
       </div>
       
       <div v-if="hasActiveFilters" class="selected-filters">
-        <h4>🎯 Активные фильтры:</h4>
+        <h4>🎯 Aktívne filtre:</h4>
         <div class="selected-filters-list">
           <span v-if="filters.maxMinutes < 240" class="selected-filter-item">
-            ⏱️ До {{ filters.maxMinutes }} мин
+            ⏱️ Do {{ filters.maxMinutes }} min
             <button @click="clearFilter('maxMinutes')" class="filter-remove">×</button>
           </span>
           <span v-if="filters.maxIngredients < 50" class="selected-filter-item">
-            🛒 До {{ filters.maxIngredients }} ингредиентов
+            🛒 Do {{ filters.maxIngredients }} ingrediencie
             <button @click="clearFilter('maxIngredients')" class="filter-remove">×</button>
           </span>
           <span v-if="filters.maxCalories < 2000" class="selected-filter-item">
-            🔥 До {{ filters.maxCalories }} калорий
+            🔥 Do {{ filters.maxCalories }} kalórií
             <button @click="clearFilter('maxCalories')" class="filter-remove">×</button>
           </span>
           
@@ -253,13 +253,13 @@
           </span>
           
           <span v-if="filters.onlyNoName" class="selected-filter-item">
-            📝 Только без названия
+            📝 Len bez názvu
             <button @click="clearFilter('onlyNoName')" class="filter-remove">×</button>
           </span>
         </div>
         
         <button @click="clearAllFilters" class="clear-all-filters-btn">
-          ✕ Очистить все фильтры
+          ✕ Vymazať všetky filtre
         </button>
       </div>
       
@@ -271,10 +271,10 @@
             @change="updateFilter('onlyNoName', $event.target.checked)" 
             id="onlyNoName" 
           />
-          <label for="onlyNoName" style="cursor:pointer;">Показать только без названия</label>
+          <label for="onlyNoName" style="cursor:pointer;">Zobraziť len bez názvu</label>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="color:#666;font-size:0.9em;">Показывать по:</span>
+          <span style="color:#666;font-size:0.9em;">Zobraziť podľa:</span>
           <select 
             :value="pageSize" 
             @change="changePageSize($event.target.value)" 
@@ -283,7 +283,7 @@
             <option v-for="size in pageSizes" :key="size" :value="size">{{ size }}</option>
           </select>
         </div>
-        <span style="color:#666;font-size:0.9em;">Найдено рецептов: {{ totalRecipes }}</span>
+        <span style="color:#666;font-size:0.9em;">Nájdených receptov: {{ totalRecipes }}</span>
         <Pagination 
           :current-page="currentPage"
           :total-pages="totalPages"

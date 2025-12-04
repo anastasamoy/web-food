@@ -2,13 +2,13 @@
   <div class="chat-widget">
     <!-- Кнопка открытия чата -->
     <button class="chat-toggle-btn" @click="isOpen = !isOpen">
-      {{ isOpen ? '❌ Закрыть' : '🤖 ИИ-Повар' }}
+      {{ isOpen ? '❌ Zatvoriť' : '🤖 AI-Kuchár' }}
     </button>
 
     <!-- Окно чата -->
     <div v-if="isOpen" class="chat-window">
       <div class="chat-header">
-        <h3>Помощник</h3>
+        <h3>Asistent</h3>
       </div>
       
       <div class="chat-messages" ref="messagesContainer">
@@ -28,7 +28,7 @@
         <input 
           v-model="newMessage" 
           @keyup.enter="sendMessage"
-          placeholder="Спроси рецепт..." 
+          placeholder="Opýtaj sa na recept..." 
           type="text"
         />
         <button @click="sendMessage" :disabled="isLoading || !newMessage.trim()">➤</button>
@@ -46,7 +46,7 @@ export default {
     const isOpen = ref(false);
     const newMessage = ref('');
     const messages = ref([
-      { text: 'Привет! Я ИИ-повар. Что приготовить?', isUser: false }
+      { text: 'Ahoj! Som kuchár s umelou inteligenciou. Čo mám uvariť?', isUser: false }
     ]);
     const isLoading = ref(false);
     const messagesContainer = ref(null);
@@ -80,10 +80,10 @@ export default {
         if (data.reply) {
           messages.value.push({ text: data.reply, isUser: false });
         } else {
-          messages.value.push({ text: 'Ошибка сервера', isUser: false });
+          messages.value.push({ text: 'Chyba servera', isUser: false });
         }
       } catch (error) {
-        messages.value.push({ text: 'Не удалось связаться с ботом.', isUser: false });
+        messages.value.push({ text: 'Nepodarilo sa spojiť s botom.', isUser: false });
         console.error(error);
       } finally {
         isLoading.value = false;

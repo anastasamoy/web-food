@@ -79,15 +79,15 @@ export default {
       switchToLogin
     } = useAuth();
 
-    const tabs = ['Рецепты', 'Пользователи', 'PP-рецепты', 'Взаимодействия'];
-    const currentTab = ref('Рецепты');
+    const tabs = ['Recepty', 'Používatelia', 'PP recepty', 'Interakcie'];
+    const currentTab = ref('Recepty');
 
     const currentView = computed(() => {
       const views = {
-        'Рецепты': RecipesView, // Изменил строки на компоненты
-        'Пользователи': UsersView,
-        'PP-рецепты': PPRecipesView,
-        'Взаимодействия': InteractionsView
+        'Recepty': RecipesView, // Изменил строки на компоненты
+        'Používatelia': UsersView,
+        'PP recepty': PPRecipesView,
+        'Interakcie': InteractionsView
       };
       return views[currentTab.value] || RecipesView;
     });

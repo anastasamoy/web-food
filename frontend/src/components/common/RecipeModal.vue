@@ -4,34 +4,34 @@
       <button class="modal-close" @click="$emit('close')">×</button>
       <h2>{{ getRecipeName(recipe.name) }}</h2>
       <div class="meta">
-        <span>⏱️ {{ recipe.minutes }} мин</span>
-        <span>🛒 {{ recipe.n_ingredients }} ингредиентов</span>
+        <span>⏱️ {{ recipe.minutes }} min</span>
+        <span>🛒 {{ recipe.n_ingredients }} zložiek</span>
       </div>
       <div class="desc">{{ recipe.description }}</div>
       
       <div v-if="recipe.ingredients">
-        <h4>Ингредиенты:</h4>
+        <h4>Zložky:</h4>
         <ul>
           <li v-for="(ing, idx) in parseTags(recipe.ingredients)" :key="idx">{{ ing }}</li>
         </ul>
       </div>
       
       <div v-if="recipe.tags">
-        <h4>Категории/теги:</h4>
+        <h4>Kategórie/tagy:</h4>
         <div class="tags">
           <span v-for="tag in parseTags(recipe.tags)" :key="tag" class="tag">{{ tag }}</span>
         </div>
       </div>
       
       <div v-if="recipe.steps">
-        <h4>Как готовить:</h4>
+        <h4>Ako variť:</h4>
         <ol>
           <li v-for="(step, idx) in parseTags(recipe.steps)" :key="idx">{{ step }}</li>
         </ol>
       </div>
       
       <div v-if="recipe.nutrition">
-        <h4>Пищевая ценность:</h4>
+        <h4>Potravinová hodnota:</h4>
         <ul class="nutrition-list">
           <li v-for="(nutr, idx) in parseTags(recipe.nutrition)" :key="idx">
             <template v-if="nutritionLabels[idx]">
@@ -58,15 +58,15 @@ defineProps({
 defineEmits(['close']);
 
 const nutritionLabels = [
-  'Калории (kcal)',
-  'Жиры (g)',
-  'Насыщенные жиры (g)',
-  'Углеводы (g)',
-  'Сахар (g)',
-  'Белки (g)',
-  'Клетчатка (g)',
-  'Натрий (mg)',
-  'Холестерин (mg)'
+  'Kalórie (kcal)',
+  'Tuky (g)',
+  'Nasycené tuky (g)',
+  'Sacharidy (g)',
+  'Cukor (g)',
+  'Bielkoviny (g)',
+  'Vláknina (g)',
+  'Sodík (mg)',
+  'Cholesterol (mg)'
 ];
 
 function getRecipeName(name) {

@@ -2,8 +2,8 @@
   <div class="recipe-card" @click="$emit('click')">
     <h3>{{ getRecipeName(recipe.name) }}</h3>
     <div class="meta">
-      <span>⏱️ {{ recipe.minutes }} мин</span>
-      <span>🛒 {{ recipe.n_ingredients }} ингредиентов</span>
+      <span>⏱️ {{ recipe.minutes }} min</span>
+      <span>🛒 {{ recipe.n_ingredients }} zložiek</span>
     </div>
     <div class="desc">{{ recipe.description?.slice(0, 80) }}...</div>
   </div>
