@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- Хедер с аутентификацией -->
     <AppHeader
       :is-authenticated="isAuthenticated"
       :user="user"
@@ -13,17 +12,16 @@
       @show-register="showRegister = true"
     />
 
-    <!-- Навигация по вкладкам -->
     <AppTabs
       :tabs="tabs"
       :current-tab="currentTab"
       @tab-change="switchTab"
     />
 
-    <!-- Основной контент -->
     <component :is="currentView" />
 
-    <!-- Модальные окна аутентификации -->
+    <ChatBot v-if="isAuthenticated" />
+
     <LoginForm 
       v-if="showLogin"
       @success="showLogin = false"
@@ -43,15 +41,13 @@
 import { ref, computed } from 'vue';
 import { useAuth } from './composables/useAuth.js';
 
-// Layout Components
 import AppHeader from './components/layout/AppHeader.vue';
 import AppTabs from './components/layout/AppTabs.vue';
+import ChatBot from './components/ChatBot.vue';
 
-// Auth Components
 import LoginForm from './components/auth/LoginForm.vue';
 import RegisterForm from './components/auth/RegisterForm.vue';
 
-// Views
 import RecipesView from './views/RecipesView.vue';
 import UsersView from './views/UsersView.vue';
 import PPRecipesView from './views/PPRecipesView.vue';
@@ -62,6 +58,7 @@ export default {
   components: {
     AppHeader,
     AppTabs,
+    ChatBot,
     LoginForm,
     RegisterForm,
     RecipesView,
@@ -70,7 +67,6 @@ export default {
     InteractionsView
   },
   setup() {
-    // Аутентификация
     const {
       isAuthenticated,
       user,
@@ -83,19 +79,17 @@ export default {
       switchToLogin
     } = useAuth();
 
-    // Вкладки
     const tabs = ['Рецепты', 'Пользователи', 'PP-рецепты', 'Взаимодействия'];
     const currentTab = ref('Рецепты');
 
-    // Вычисляем текущий view компонент
     const currentView = computed(() => {
       const views = {
-        'Рецепты': 'RecipesView',
-        'Пользователи': 'UsersView',
-        'PP-рецепты': 'PPRecipesView',
-        'Взаимодействия': 'InteractionsView'
+        'Рецепты': RecipesView, // Изменил строки на компоненты
+        'Пользователи': UsersView,
+        'PP-рецепты': PPRecipesView,
+        'Взаимодействия': InteractionsView
       };
-      return views[currentTab.value] || 'RecipesView';
+      return views[currentTab.value] || RecipesView;
     });
 
     const switchTab = (tab) => {
@@ -103,7 +97,6 @@ export default {
     };
 
     return {
-      // Аутентификация
       isAuthenticated,
       user,
       isAdmin,
@@ -113,8 +106,6 @@ export default {
       switchToAdmin,
       switchToRegister,
       switchToLogin,
-
-      // Вкладки
       tabs,
       currentTab,
       currentView,
@@ -124,5 +115,12 @@ export default {
 }
 </script>
 
-<style scoped src="./styles/app.css"></style>
-<style src="./styles/auth.css"></style>
+<style scoped>
+/* Стили можно добавить здесь, если они короткие */
+</style>
+
+<style>
+/* Глобальные стили */
+@import './styles/app.css';
+@import './styles/auth.css';
+</style>

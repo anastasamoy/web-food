@@ -2,9 +2,27 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 import sqlite3
+from gemini_service import get_chat_response
 
 app = Flask(__name__)
-CORS(app, origins="*")
+CORS(app)
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    user_message = data.get('message')
+
+    if not user_message:
+        return jsonify({"error": "Сообщение не может быть пустым"}), 400
+
+    # Вызываем функцию из вашего файла gemini_service.py
+    bot_reply = get_chat_response(user_message)
+    
+    return jsonify({"reply": bot_reply})
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
